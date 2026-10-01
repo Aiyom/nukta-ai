@@ -1,5 +1,7 @@
 const views = {
   agent: document.querySelector("#agentView"),
+  chats: document.querySelector("#chatsView"),
+  projects: document.querySelector("#projectsView"),
   search: document.querySelector("#searchView"),
   images: document.querySelector("#imagesView"),
   sites: document.querySelector("#sitesView"),
@@ -9,6 +11,16 @@ const views = {
 const title = document.querySelector("#viewTitle");
 const conversation = document.querySelector("#conversation");
 const agentForm = document.querySelector("#agentForm");
+const newChatButton = document.querySelector("#newChatButton");
+const sidebarChatList = document.querySelector("#sidebarChatList");
+const chatLibrary = document.querySelector("#chatLibrary");
+const projectOpenForm = document.querySelector("#projectOpenForm");
+const projectPath = document.querySelector("#projectPath");
+const projectSummary = document.querySelector("#projectSummary");
+const projectConversation = document.querySelector("#projectConversation");
+const projectFiles = document.querySelector("#projectFiles");
+const projectAskForm = document.querySelector("#projectAskForm");
+const projectInstruction = document.querySelector("#projectInstruction");
 const searchForm = document.querySelector("#searchForm");
 const webAskForm = document.querySelector("#webAskForm");
 const promptInput = document.querySelector("#prompt");
@@ -48,8 +60,13 @@ const artifactList = document.querySelector("#artifactList");
 let tasks = [];
 let selectedPage = null;
 let modelState = null;
+let chats = [];
+let activeChatId = null;
+let currentProject = null;
 
 const maxComposerRows = 5;
+const chatStorageKey = "nukta.ai.chats.v1";
+const projectStorageKey = "nukta.ai.project.v1";
 
 function resizeComposerInput(input) {
   if (!input) return;
@@ -87,6 +104,8 @@ document.querySelectorAll(".tab").forEach((button) => {
     views[button.dataset.view].classList.add("active");
     title.textContent = {
       agent: "Полноценный локальный агент",
+      chats: "Старые чаты",
+      projects: "Локальный проект",
       search: "Поиск и разговор по сайту",
       images: "Локальная генерация картинок",
       sites: "Генератор локальных сайтов",
@@ -96,6 +115,107 @@ document.querySelectorAll(".tab").forEach((button) => {
     document.querySelectorAll("textarea.auto-grow").forEach(resizeComposerInput);
   });
 });
+
+function nowLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("ru", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function loadChats() {
+  try {
+    chats = JSON.parse(localStorage.getItem(chatStorageKey) || "[]");
+  } catch {
+    chats = [];
+  }
+  if (!chats.length) createChat("Новый чат", false);
+  activeChatId = chats[0]?.id || null;
+}
+
+function saveChats() {
+  localStorage.setItem(chatStorageKey, JSON.stringify(chats.slice(0, 40)));
+}
+
+function activeChat() {
+  return chats.find((chat) => chat.id === activeChatId);
+}
+
+function createChat(titleText = "Новый чат", render = true) {
+  const chat = {
+    id: `chat_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    title: titleText,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    messages: [],
+  };
+  chats.unshift(chat);
+  activeChatId = chat.id;
+  saveChats();
+  if (render) {
+    renderChat();
+    renderChatLists();
+  }
+  return chat;
+}
+
+function addMessageToActiveChat(role, content, meta = "") {
+  let chat = activeChat();
+  if (!chat) chat = createChat("Новый чат", false);
+  chat.messages.push({ role, content, meta, at: new Date().toISOString() });
+  if (role === "user" && (chat.title === "Новый чат" || chat.messages.length <= 1)) {
+    chat.title = content.slice(0, 56) || "Новый чат";
+  }
+  chat.updatedAt = new Date().toISOString();
+  chats = [chat, ...chats.filter((item) => item.id !== chat.id)];
+  activeChatId = chat.id;
+  saveChats();
+  renderChatLists();
+}
+
+function renderChat() {
+  conversation.innerHTML = "";
+  const chat = activeChat();
+  if (!chat || !chat.messages.length) {
+    conversation.innerHTML = `<article class="empty-state"><h3>Дай задачу обычным языком</h3><p>Например: “сгенерируй картинку дерево в пустыне”, “напиши код”, “замерь скорость”.</p></article>`;
+    return;
+  }
+  for (const message of chat.messages) {
+    addBubble(message.role, message.content, message.meta || "", false);
+  }
+}
+
+function openChat(chatId) {
+  activeChatId = chatId;
+  saveChats();
+  renderChat();
+  renderChatLists();
+  document.querySelector('[data-view="agent"]').click();
+}
+
+function renderChatButton(chat) {
+  const button = document.createElement("button");
+  button.className = `chat-row${chat.id === activeChatId ? " active" : ""}`;
+  button.type = "button";
+  const last = chat.messages.at(-1)?.content || "Пустой чат";
+  button.innerHTML = `<strong></strong><span></span><small></small>`;
+  button.querySelector("strong").textContent = chat.title || "Новый чат";
+  button.querySelector("span").textContent = last;
+  button.querySelector("small").textContent = nowLabel(new Date(chat.updatedAt));
+  button.addEventListener("click", () => openChat(chat.id));
+  return button;
+}
+
+function renderChatLists() {
+  sidebarChatList.innerHTML = "";
+  chatLibrary.innerHTML = "";
+  for (const chat of chats) {
+    sidebarChatList.appendChild(renderChatButton(chat));
+    chatLibrary.appendChild(renderChatButton(chat));
+  }
+}
 
 async function readJsonOrThrow(response) {
   const raw = await response.text();
@@ -109,7 +229,7 @@ async function readJsonOrThrow(response) {
   return data;
 }
 
-function addBubble(role, content, meta = "") {
+function addBubble(role, content, meta = "", persist = true) {
   conversation.querySelector(".empty-state")?.remove();
   const item = document.createElement("article");
   item.className = `bubble ${role}`;
@@ -118,6 +238,19 @@ function addBubble(role, content, meta = "") {
   if (meta) item.querySelector(".bubble-meta").textContent = meta;
   conversation.appendChild(item);
   conversation.scrollTop = conversation.scrollHeight;
+  if (persist) addMessageToActiveChat(role, content, meta);
+  return item;
+}
+
+function addProjectMessage(role, content, meta = "") {
+  projectConversation.hidden = false;
+  const item = document.createElement("article");
+  item.className = `bubble ${role}`;
+  item.innerHTML = `<div class="bubble-text"></div>${meta ? `<div class="bubble-meta"></div>` : ""}`;
+  item.querySelector(".bubble-text").textContent = content;
+  if (meta) item.querySelector(".bubble-meta").textContent = meta;
+  projectConversation.appendChild(item);
+  projectConversation.scrollTop = projectConversation.scrollHeight;
   return item;
 }
 
@@ -171,7 +304,7 @@ function renderArtifacts(artifacts, mode) {
 
 async function runAgent(input, mode = "auto") {
   addBubble("user", input, mode);
-  const progress = addBubble("assistant", "Выполняю локально...", "agent running");
+  const progress = addBubble("assistant", "Выполняю локально...", "agent running", false);
   runButton.disabled = true;
   benchButton.disabled = true;
   try {
@@ -304,8 +437,100 @@ agentForm.addEventListener("submit", async (event) => {
 benchButton.addEventListener("click", () => runAgent("Замерь скорость локальной модели", "benchmark"));
 
 clearButton.addEventListener("click", () => {
-  conversation.innerHTML = `<article class="empty-state"><h3>Дай задачу обычным языком</h3><p>Например: “сгенерируй картинку дерево в пустыне”, “напиши код”, “замерь скорость”.</p></article>`;
+  const chat = activeChat();
+  if (chat) {
+    chat.messages = [];
+    chat.updatedAt = new Date().toISOString();
+    saveChats();
+  }
+  renderChat();
+  renderChatLists();
   stepList.innerHTML = "";
+});
+
+newChatButton.addEventListener("click", () => {
+  createChat();
+  document.querySelector('[data-view="agent"]').click();
+});
+
+async function openProject(path) {
+  const response = await fetch("/v1/projects/open", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  currentProject = await readJsonOrThrow(response);
+  localStorage.setItem(projectStorageKey, currentProject.path);
+  projectPath.value = currentProject.path;
+  projectSummary.innerHTML = `
+    <h3>${currentProject.name}</h3>
+    <p>${currentProject.path}</p>
+    <strong>${currentProject.summary}</strong>
+  `;
+  projectConversation.innerHTML = "";
+  projectConversation.hidden = true;
+  projectFiles.innerHTML = "";
+  for (const file of currentProject.files.slice(0, 120)) {
+    const row = document.createElement("div");
+    row.className = "file-row";
+    row.innerHTML = `<span></span><small></small>`;
+    row.querySelector("span").textContent = file.path;
+    row.querySelector("small").textContent = `${Math.round(file.size / 1024)} KB`;
+    projectFiles.appendChild(row);
+  }
+}
+
+projectOpenForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const path = projectPath.value.trim();
+  if (!path) return;
+  projectSummary.textContent = "Открываю проект...";
+  projectFiles.innerHTML = "";
+  try {
+    await openProject(path);
+  } catch (error) {
+    projectSummary.textContent = `Ошибка: ${error.message}`;
+  }
+});
+
+projectAskForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const instruction = projectInstruction.value.trim();
+  if (!instruction) return;
+  if (!currentProject) {
+    projectSummary.textContent = "Сначала открой папку проекта.";
+    return;
+  }
+  resetComposerInput(projectInstruction);
+  const chat = activeChat() || createChat("Проект", false);
+  if (chat.title === "Новый чат") chat.title = `Проект: ${currentProject.name}`;
+  addBubble("user", instruction, currentProject.name);
+  addProjectMessage("user", instruction, currentProject.name);
+  const progress = addProjectMessage("assistant", "Читаю проект и думаю...", currentProject.path);
+  try {
+    const response = await fetch("/v1/projects/ask", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        path: currentProject.path,
+        instruction,
+        max_files: 28,
+      }),
+    });
+    const data = await readJsonOrThrow(response);
+    progress.remove();
+    addProjectMessage("assistant", data.answer, `${data.files_used.length} файлов в контексте`);
+    addBubble("assistant", data.answer, `${data.files_used.length} файлов в контексте`);
+    renderSteps([
+      { title: "Открыл проект", detail: currentProject.path, status: "completed" },
+      { title: "Собрал контекст", detail: data.files_used.join(", "), status: "completed" },
+      { title: "Ответил по проекту", detail: "Без записи файлов", status: "completed" },
+    ]);
+  } catch (error) {
+    progress.remove();
+    addProjectMessage("assistant", `Ошибка проекта: ${error.message}`, "failed");
+    addBubble("assistant", `Ошибка проекта: ${error.message}`, "failed");
+  }
 });
 
 siteForm.addEventListener("submit", async (event) => {
@@ -506,6 +731,17 @@ modelAddForm.addEventListener("submit", async (event) => {
     modelSwitchStatus.textContent = `Ошибка: ${error.message}`;
   }
 });
+
+loadChats();
+renderChat();
+renderChatLists();
+const savedProjectPath = localStorage.getItem(projectStorageKey);
+if (savedProjectPath) {
+  projectPath.value = savedProjectPath;
+  openProject(savedProjectPath).catch(() => {
+    projectSummary.textContent = "Сохраненный проект пока недоступен. Укажи папку заново.";
+  });
+}
 
 refreshHealth().catch(() => {
   systemFacts.innerHTML = "<div><dt>Статус</dt><dd>Недоступен</dd></div>";

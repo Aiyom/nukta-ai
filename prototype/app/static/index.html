@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Nukta AI</title>
-    <link rel="stylesheet" href="/static/styles.css?v=22" />
+    <link rel="stylesheet" href="/static/styles.css?v=23" />
   </head>
   <body>
     <main class="agent-shell">
@@ -18,12 +18,23 @@
         </div>
         <nav class="tabs" aria-label="Разделы">
           <button class="tab active" data-view="agent" type="button">Агент</button>
+          <button class="tab" data-view="chats" type="button">Чаты</button>
+          <button class="tab" data-view="projects" type="button">Проекты</button>
           <button class="tab" data-view="search" type="button">Поиск</button>
           <button class="tab" data-view="images" type="button">Картинки</button>
           <button class="tab" data-view="sites" type="button">Сайты</button>
           <button class="tab" data-view="models" type="button">Модели</button>
           <button class="tab" data-view="artifacts" type="button">Артефакты</button>
         </nav>
+        <section class="chat-history-panel">
+          <div class="section-heading">
+            <h2>Старые чаты</h2>
+            <button id="newChatButton" class="mini-icon-button" type="button" aria-label="Новый чат" title="Новый чат">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </button>
+          </div>
+          <div id="sidebarChatList" class="sidebar-chat-list"></div>
+        </section>
         <section class="status-card">
           <h2>Стек</h2>
           <dl id="systemFacts"><div><dt>Статус</dt><dd>Проверяю...</dd></div></dl>
@@ -55,6 +66,40 @@
           <form id="agentForm" class="composer">
             <textarea id="prompt" class="auto-grow" rows="1" placeholder="Что сделать агенту?"></textarea>
             <button id="runButton" class="send-button" type="submit" aria-label="Запустить" title="Запустить">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            </button>
+          </form>
+        </section>
+
+        <section id="chatsView" class="view">
+          <div class="library-layout">
+            <div>
+              <h3>История чатов</h3>
+              <p>Все локально в браузере этого приложения. Открой любой чат и продолжай с нижнего поля агента.</p>
+            </div>
+            <div id="chatLibrary" class="chat-library"></div>
+          </div>
+        </section>
+
+        <section id="projectsView" class="view">
+          <div class="project-board">
+            <section class="project-open-card">
+              <h3>Подключить локальный проект</h3>
+              <p>Укажи путь к папке. Агент прочитает структуру и текстовые файлы, затем сможет отвечать по проекту.</p>
+              <form id="projectOpenForm" class="inline-form">
+                <input id="projectPath" placeholder="/Users/aiyom/ai_tasks/new_ai_version" />
+                <button class="send-button" type="submit" aria-label="Открыть проект" title="Открыть проект">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h4"/></svg>
+                </button>
+              </form>
+            </section>
+            <section id="projectSummary" class="project-summary"></section>
+            <section id="projectConversation" class="project-conversation"></section>
+            <section id="projectFiles" class="project-files"></section>
+          </div>
+          <form id="projectAskForm" class="composer">
+            <textarea id="projectInstruction" class="auto-grow" rows="1" placeholder="Что исправить или изучить в проекте?"></textarea>
+            <button class="send-button" type="submit" aria-label="Спросить по проекту" title="Спросить по проекту">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
             </button>
           </form>
@@ -179,6 +224,6 @@
         </section>
       </aside>
     </main>
-    <script src="/static/app.js?v=22"></script>
+    <script src="/static/app.js?v=23"></script>
   </body>
 </html>

@@ -154,6 +154,35 @@ class WebAskResponse(BaseModel):
     metrics: dict[str, float] = Field(default_factory=dict)
 
 
+class ProjectOpenRequest(BaseModel):
+    path: str
+
+
+class ProjectFile(BaseModel):
+    path: str
+    size: int
+    kind: str = "file"
+
+
+class ProjectOpenResponse(BaseModel):
+    path: str
+    name: str
+    files: list[ProjectFile]
+    summary: str
+
+
+class ProjectAskRequest(BaseModel):
+    path: str
+    instruction: str
+    max_files: int = Field(default=24, ge=1, le=80)
+
+
+class ProjectAskResponse(BaseModel):
+    answer: str
+    files_used: list[str]
+    metrics: dict[str, float] = Field(default_factory=dict)
+
+
 class ModelSwitchRequest(BaseModel):
     kind: Literal["text", "image", "video"]
     model_id: str

@@ -25,6 +25,11 @@ from app.models import (
     ImageGenerationResponse,
     ModelAddRequest,
     ModelSwitchRequest,
+    ProjectAskRequest,
+    ProjectAskResponse,
+    ProjectFile,
+    ProjectOpenRequest,
+    ProjectOpenResponse,
     SiteGenerationRequest,
     SiteGenerationResponse,
     SearchRequest,
@@ -45,6 +50,53 @@ GENERATED_SITES_DIR = Path(settings.generated_sites_dir)
 if not GENERATED_SITES_DIR.is_absolute():
     GENERATED_SITES_DIR = (APP_DIR.parent / GENERATED_SITES_DIR).resolve()
 GENERATED_SITES_DIR.mkdir(parents=True, exist_ok=True)
+
+PROJECT_IGNORE_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".turbo",
+    ".cache",
+    "__pycache__",
+    "target",
+    "DerivedData",
+}
+PROJECT_TEXT_SUFFIXES = {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".css",
+    ".dart",
+    ".go",
+    ".h",
+    ".html",
+    ".java",
+    ".js",
+    ".json",
+    ".jsx",
+    ".kt",
+    ".md",
+    ".mjs",
+    ".py",
+    ".rs",
+    ".sh",
+    ".swift",
+    ".toml",
+    ".ts",
+    ".tsx",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
 
 app = FastAPI(title=settings.app_name, version="0.2.0")
 app.add_middleware(
@@ -417,6 +469,66 @@ def clean_page_text(html: str) -> tuple[str, str]:
     return title, "\n".join(deduped)[:24000]
 
 
+def resolve_project_path(path: str) -> Path:
+    project_path = Path(path).expanduser().resolve()
+    if not project_path.exists():
+        raise HTTPException(status_code=404, detail="Project directory was not found")
+    if not project_path.is_dir():
+        raise HTTPException(status_code=400, detail="Project path must be a directory")
+    return project_path
+
+
+def should_skip_project_path(path: Path) -> bool:
+    return any(part in PROJECT_IGNORE_DIRS for part in path.parts)
+
+
+def is_text_project_file(path: Path) -> bool:
+    return path.suffix.lower() in PROJECT_TEXT_SUFFIXES
+
+
+def scan_project_files(project_path: Path, limit: int = 500) -> list[ProjectFile]:
+    files: list[ProjectFile] = []
+    for item in sorted(project_path.rglob("*")):
+        relative = item.relative_to(project_path)
+        if should_skip_project_path(relative):
+            continue
+        if item.is_file() and is_text_project_file(item):
+            files.append(ProjectFile(path=str(relative), size=item.stat().st_size))
+        if len(files) >= limit:
+            break
+    return files
+
+
+def summarize_project(files: list[ProjectFile]) -> str:
+    suffix_counts: dict[str, int] = {}
+    for file in files:
+        suffix = Path(file.path).suffix.lower() or "no_ext"
+        suffix_counts[suffix] = suffix_counts.get(suffix, 0) + 1
+    top = sorted(suffix_counts.items(), key=lambda item: item[1], reverse=True)[:6]
+    stack = ", ".join(f"{suffix}: {count}" for suffix, count in top) or "текстовые файлы не найдены"
+    return f"Найдено файлов для контекста: {len(files)}. Основные типы: {stack}."
+
+
+def project_context(project_path: Path, files: list[ProjectFile], max_files: int) -> tuple[str, list[str]]:
+    selected = sorted(files, key=lambda file: (file.size > 12000, file.path))[:max_files]
+    chunks: list[str] = []
+    used: list[str] = []
+    budget = 52000
+    for file in selected:
+        source = project_path / file.path
+        try:
+            text = source.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        snippet = text[:6000]
+        block = f"\n--- FILE: {file.path} ---\n{snippet}\n"
+        if sum(len(chunk) for chunk in chunks) + len(block) > budget:
+            break
+        chunks.append(block)
+        used.append(file.path)
+    return "\n".join(chunks), used
+
+
 @app.post("/v1/search")
 async def web_search(request: SearchRequest) -> SearchResponse:
     query = request.query.strip()
@@ -443,6 +555,50 @@ async def web_search(request: SearchRequest) -> SearchResponse:
         if len(results) >= request.max_results:
             break
     return SearchResponse(query=query, results=results)
+
+
+@app.post("/v1/projects/open")
+async def open_project(request: ProjectOpenRequest) -> ProjectOpenResponse:
+    project_path = resolve_project_path(request.path)
+    files = scan_project_files(project_path)
+    return ProjectOpenResponse(
+        path=str(project_path),
+        name=project_path.name,
+        files=files,
+        summary=summarize_project(files),
+    )
+
+
+@app.post("/v1/projects/ask")
+async def ask_project(request: ProjectAskRequest) -> ProjectAskResponse:
+    project_path = resolve_project_path(request.path)
+    instruction = request.instruction.strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="Project instruction is empty")
+    files = scan_project_files(project_path)
+    context, used = project_context(project_path, files, request.max_files)
+    if not context:
+        raise HTTPException(status_code=400, detail="No readable text files found in project")
+    prompt = (
+        "Ты локальный инженерный агент Nukta AI. Отвечай по-русски. "
+        "Ты получил контекст локального проекта пользователя. "
+        "Сначала кратко объясни, что понял о проекте, затем дай точные действия. "
+        "Если нужны изменения в коде, предложи конкретные файлы и фрагменты patch/diff, "
+        "но не утверждай, что уже изменил файлы.\n\n"
+        f"PROJECT PATH: {project_path}\n"
+        f"USER TASK: {instruction}\n\n"
+        f"PROJECT CONTEXT:\n{context}"
+    )
+    provider = get_text_provider()
+    completion = await provider.complete(
+        ChatCompletionRequest(
+            model="local-default",
+            messages=[ChatMessage(role="user", content=prompt)],
+            max_tokens=1800,
+        )
+    )
+    answer = completion.choices[0].message.content if completion.choices else ""
+    return ProjectAskResponse(answer=answer, files_used=used, metrics=completion.metrics)
 
 
 @app.post("/v1/web/page")
