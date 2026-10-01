@@ -25,6 +25,7 @@ body {
   color: var(--ink);
   font-size: 15px;
   line-height: 1.45;
+  overflow: hidden;
 }
 button, textarea, input, select { font: inherit; }
 h1, h2, h3, h4, p { margin: 0; }
@@ -39,9 +40,10 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .agent-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr) 292px;
+  overflow: hidden;
 }
 
 .sidebar, .inspector {
@@ -134,9 +136,11 @@ dd {
 
 .workspace {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   background: var(--surface);
+  overflow: hidden;
 }
 .workspace-header {
   min-height: 72px;
@@ -224,7 +228,7 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 }
 #clearButton:hover, #applyModelsButton:hover { background: var(--surface-soft); }
 
-.view { display: none; min-height: 0; }
+.view { display: none; min-height: 0; overflow: hidden; }
 .view.active { display: grid; }
 #agentView.view.active {
   display: grid;
@@ -243,6 +247,7 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 }
 
 .conversation {
+  min-height: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;

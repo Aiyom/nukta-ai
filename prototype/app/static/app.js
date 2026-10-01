@@ -72,6 +72,11 @@ function resetComposerInput(input) {
 document.querySelectorAll("textarea.auto-grow").forEach((input) => {
   resizeComposerInput(input);
   input.addEventListener("input", () => resizeComposerInput(input));
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    input.form?.requestSubmit();
+  });
 });
 
 document.querySelectorAll(".tab").forEach((button) => {
