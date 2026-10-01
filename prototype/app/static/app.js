@@ -1,5 +1,6 @@
 const views = {
   agent: document.querySelector("#agentView"),
+  search: document.querySelector("#searchView"),
   images: document.querySelector("#imagesView"),
   sites: document.querySelector("#sitesView"),
   artifacts: document.querySelector("#artifactsView"),
@@ -7,7 +8,16 @@ const views = {
 const title = document.querySelector("#viewTitle");
 const conversation = document.querySelector("#conversation");
 const agentForm = document.querySelector("#agentForm");
+const searchForm = document.querySelector("#searchForm");
+const webAskForm = document.querySelector("#webAskForm");
 const promptInput = document.querySelector("#prompt");
+const searchQuery = document.querySelector("#searchQuery");
+const searchResults = document.querySelector("#searchResults");
+const webContext = document.querySelector("#webContext");
+const webTitle = document.querySelector("#webTitle");
+const webUrl = document.querySelector("#webUrl");
+const webQuestion = document.querySelector("#webQuestion");
+const webAnswer = document.querySelector("#webAnswer");
 const siteForm = document.querySelector("#siteForm");
 const imageForm = document.querySelector("#imageForm");
 const siteName = document.querySelector("#siteName");
@@ -24,6 +34,7 @@ const taskList = document.querySelector("#taskList");
 const artifactList = document.querySelector("#artifactList");
 
 let tasks = [];
+let selectedPage = null;
 
 document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => {
@@ -33,6 +44,7 @@ document.querySelectorAll(".tab").forEach((button) => {
     views[button.dataset.view].classList.add("active");
     title.textContent = {
       agent: "Полноценный локальный агент",
+      search: "Поиск и разговор по сайту",
       images: "Локальная генерация картинок",
       sites: "Генератор локальных сайтов",
       artifacts: "Артефакты сессии",
@@ -190,6 +202,92 @@ siteForm.addEventListener("submit", async (event) => {
     addArtifactCard("site", link);
   } catch (error) {
     siteResult.textContent = `Ошибка: ${error.message}`;
+  }
+});
+
+searchForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = searchQuery.value.trim();
+  if (!query) return;
+  searchResults.textContent = "Ищу...";
+  webContext.hidden = true;
+  selectedPage = null;
+  try {
+    const response = await fetch("/v1/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query, max_results: 6 }),
+    });
+    const data = await readJsonOrThrow(response);
+    searchResults.innerHTML = "";
+    if (!data.results.length) {
+      searchResults.textContent = "Ничего не найдено.";
+      return;
+    }
+    for (const result of data.results) {
+      const card = document.createElement("article");
+      card.className = "search-card";
+      card.innerHTML = `
+        <h3></h3>
+        <p class="search-url"></p>
+        <p class="search-snippet"></p>
+        <button type="button">Читать и продолжить беседу</button>
+      `;
+      card.querySelector("h3").textContent = result.title;
+      card.querySelector(".search-url").textContent = result.url;
+      card.querySelector(".search-snippet").textContent = result.snippet || "Без описания";
+      card.querySelector("button").addEventListener("click", () => openSearchResult(result));
+      searchResults.appendChild(card);
+    }
+  } catch (error) {
+    searchResults.textContent = `Ошибка поиска: ${error.message}`;
+  }
+});
+
+async function openSearchResult(result) {
+  webContext.hidden = false;
+  webTitle.textContent = "Читаю страницу...";
+  webUrl.textContent = result.url;
+  webAnswer.textContent = "";
+  try {
+    const response = await fetch("/v1/web/page", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: result.url }),
+    });
+    selectedPage = await readJsonOrThrow(response);
+    webTitle.textContent = selectedPage.title;
+    webUrl.textContent = selectedPage.url;
+    webAnswer.textContent = `Страница прочитана: ${selectedPage.text.length} символов. Теперь можно спрашивать по этому сайту.`;
+  } catch (error) {
+    webAnswer.textContent = `Не удалось прочитать страницу: ${error.message}`;
+  }
+}
+
+webAskForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedPage) {
+    webAnswer.textContent = "Сначала выбери сайт из результатов поиска.";
+    return;
+  }
+  const question = webQuestion.value.trim();
+  if (!question) return;
+  webAnswer.textContent = "Думаю по выбранной странице...";
+  try {
+    const response = await fetch("/v1/web/ask", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: selectedPage.url,
+        title: selectedPage.title,
+        page_text: selectedPage.text,
+        question,
+      }),
+    });
+    const data = await readJsonOrThrow(response);
+    webAnswer.textContent = data.answer;
+  } catch (error) {
+    webAnswer.textContent = `Ошибка ответа по сайту: ${error.message}`;
   }
 });
 

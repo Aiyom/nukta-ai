@@ -116,6 +116,46 @@ button:focus-visible, textarea:focus, input:focus { outline: 3px solid #8db5ff; 
 .site-form label { display: grid; gap: 8px; color: var(--muted); }
 .site-form button { width: fit-content; }
 .site-result { padding: 0 28px 28px; }
+.search-results {
+  padding: 0 28px 18px;
+  display: grid;
+  gap: 12px;
+}
+.search-card, .web-context {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  padding: 16px;
+}
+.search-card h3 { font-size: 20px; margin-bottom: 6px; }
+.search-card p { line-height: 1.45; }
+.search-url {
+  color: var(--brand);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.search-snippet { color: var(--muted); margin-bottom: 12px; }
+.search-card button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--brand);
+  color: white;
+  padding: 0 12px;
+}
+.web-context {
+  margin: 0 28px 28px;
+}
+.web-context h3 { font-size: 24px; margin-bottom: 6px; }
+.web-context p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.composer.compact {
+  padding: 16px 0;
+  border-top: 0;
+}
 .site-card {
   border: 1px solid var(--line); border-radius: 10px; background: white; padding: 16px;
 }

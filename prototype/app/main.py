@@ -1,7 +1,10 @@
 from pathlib import Path
 from statistics import mean
 from time import perf_counter
+from urllib.parse import parse_qs, quote_plus, urlparse
 
+import httpx
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,8 +24,15 @@ from app.models import (
     ImageGenerationResponse,
     SiteGenerationRequest,
     SiteGenerationResponse,
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
     VideoGenerationRequest,
     VideoGenerationResponse,
+    WebAskRequest,
+    WebAskResponse,
+    WebPageRequest,
+    WebPageResponse,
 )
 from app.providers import get_image_provider, get_text_provider, get_video_provider
 
@@ -327,3 +337,98 @@ async def generate_site(request: SiteGenerationRequest) -> SiteGenerationRespons
         url=f"/generated-sites/{slug}/index.html",
         files=["index.html", "styles.css"],
     )
+
+
+def normalize_duckduckgo_url(url: str) -> str:
+    parsed = urlparse(url)
+    if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
+        values = parse_qs(parsed.query).get("uddg")
+        if values:
+            return values[0]
+    return url
+
+
+def clean_page_text(html: str) -> tuple[str, str]:
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript", "svg", "iframe", "nav", "footer"]):
+        tag.decompose()
+    title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    text = soup.get_text("\n", strip=True)
+    lines = [line.strip() for line in text.splitlines() if len(line.strip()) > 2]
+    deduped: list[str] = []
+    seen = set()
+    for line in lines:
+        if line in seen:
+            continue
+        seen.add(line)
+        deduped.append(line)
+    return title, "\n".join(deduped)[:24000]
+
+
+@app.post("/v1/search")
+async def web_search(request: SearchRequest) -> SearchResponse:
+    query = request.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Search query is empty")
+    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
+    headers = {"user-agent": "LocalAIAgent/0.1 (+local user search)"}
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers=headers) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    results: list[SearchResult] = []
+    for result in soup.select(".result"):
+        link = result.select_one(".result__a")
+        if not link:
+            continue
+        href = link.get("href") or ""
+        title = link.get_text(" ", strip=True)
+        snippet_node = result.select_one(".result__snippet")
+        snippet = snippet_node.get_text(" ", strip=True) if snippet_node else ""
+        clean_url = normalize_duckduckgo_url(href)
+        if title and clean_url.startswith(("http://", "https://")):
+            results.append(SearchResult(title=title, url=clean_url, snippet=snippet))
+        if len(results) >= request.max_results:
+            break
+    return SearchResponse(query=query, results=results)
+
+
+@app.post("/v1/web/page")
+async def read_web_page(request: WebPageRequest) -> WebPageResponse:
+    url = request.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Only http/https URLs are supported")
+    headers = {"user-agent": "LocalAIAgent/0.1 (+local user page reader)"}
+    async with httpx.AsyncClient(timeout=45, follow_redirects=True, headers=headers) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+    title, text = clean_page_text(response.text)
+    return WebPageResponse(url=str(response.url), title=title or url, text=text)
+
+
+@app.post("/v1/web/ask")
+async def ask_web_page(request: WebAskRequest) -> WebAskResponse:
+    question = request.question.strip()
+    page_text = request.page_text.strip()[:18000]
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is empty")
+    if not page_text:
+        raise HTTPException(status_code=400, detail="Page text is empty")
+    prompt = (
+        "Ты отвечаешь только по тексту выбранного сайта. "
+        "Если ответа нет в тексте, скажи, что на странице недостаточно данных.\n\n"
+        f"URL: {request.url}\n"
+        f"TITLE: {request.title}\n\n"
+        f"PAGE TEXT:\n{page_text}\n\n"
+        f"QUESTION:\n{question}"
+    )
+    provider = get_text_provider()
+    completion = await provider.complete(
+        ChatCompletionRequest(
+            model="local-default",
+            messages=[ChatMessage(role="user", content=prompt)],
+            max_tokens=900,
+        )
+    )
+    answer = completion.choices[0].message.content if completion.choices else ""
+    return WebAskResponse(answer=answer, metrics=completion.metrics)

@@ -114,3 +114,41 @@ class SiteGenerationResponse(BaseModel):
     path: str
     url: str
     files: list[str]
+
+
+class SearchRequest(BaseModel):
+    query: str
+    max_results: int = Field(default=6, ge=1, le=10)
+
+
+class SearchResult(BaseModel):
+    title: str
+    url: str
+    snippet: str = ""
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchResult]
+
+
+class WebPageRequest(BaseModel):
+    url: str
+
+
+class WebPageResponse(BaseModel):
+    url: str
+    title: str
+    text: str
+
+
+class WebAskRequest(BaseModel):
+    url: str
+    title: str = ""
+    page_text: str
+    question: str
+
+
+class WebAskResponse(BaseModel):
+    answer: str
+    metrics: dict[str, float] = Field(default_factory=dict)
