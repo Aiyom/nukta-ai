@@ -43,7 +43,7 @@ function startStack(modelId) {
   });
   stackProcess.on("exit", (code) => {
     if (!quitting) {
-      dialog.showErrorBox("Local AI Agent stopped", `Backend stack exited with code ${code}.`);
+      dialog.showErrorBox("Nukta AI stopped", `Backend stack exited with code ${code}.`);
     }
   });
 }
@@ -88,7 +88,7 @@ async function createWindow() {
     height: 900,
     minWidth: 980,
     minHeight: 680,
-    title: "Local AI Agent",
+    title: "Nukta AI",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -98,7 +98,7 @@ async function createWindow() {
 
   await mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(`
     <body style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; padding: 32px; background: #eef1f0; color: #142024">
-      <h1>Local AI Agent</h1>
+      <h1>Nukta AI</h1>
       <p>Запускаю локальные модели, Docker API и рабочее пространство...</p>
     </body>
   `));

@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 
-    app_name: str = Field(default="Public AI Service")
+    app_name: str = Field(default="Nukta AI")
     environment: str = Field(default="local")
     cors_origins: str = Field(default="http://127.0.0.1:8080,http://localhost:8080")
     text_backend: str = Field(default="mock")

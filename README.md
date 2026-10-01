@@ -1,4 +1,4 @@
-# Public AI Service Prototype
+# Nukta AI
 
 This repository is a first technical baseline for a public AI service built on
 open-weight models and infrastructure under our control.

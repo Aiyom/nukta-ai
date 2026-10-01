@@ -1,8 +1,8 @@
 {
-  "name": "local-ai-agent",
+  "name": "nukta-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "Local AI Agent shell for Mac",
+  "description": "Nukta AI local agent shell for Mac",
   "main": "electron/main.js",
   "scripts": {
     "app": "electron .",
@@ -19,7 +19,7 @@
   },
   "build": {
     "appId": "local.ai.agent",
-    "productName": "Local AI Agent",
+    "productName": "Nukta AI",
     "files": [
       "electron/**/*",
       "prototype/**/*",
