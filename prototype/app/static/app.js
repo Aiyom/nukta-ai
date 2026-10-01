@@ -49,6 +49,31 @@ let tasks = [];
 let selectedPage = null;
 let modelState = null;
 
+const maxComposerRows = 5;
+
+function resizeComposerInput(input) {
+  if (!input) return;
+  const styles = window.getComputedStyle(input);
+  const lineHeight = Number.parseFloat(styles.lineHeight) || 22;
+  const padding =
+    Number.parseFloat(styles.paddingTop || "0") + Number.parseFloat(styles.paddingBottom || "0");
+  const maxHeight = Math.ceil(lineHeight * maxComposerRows + padding);
+  input.style.height = "auto";
+  input.style.height = `${Math.min(input.scrollHeight, maxHeight)}px`;
+  input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
+function resetComposerInput(input) {
+  if (!input) return;
+  input.value = "";
+  resizeComposerInput(input);
+}
+
+document.querySelectorAll("textarea.auto-grow").forEach((input) => {
+  resizeComposerInput(input);
+  input.addEventListener("input", () => resizeComposerInput(input));
+});
+
 document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
@@ -63,6 +88,7 @@ document.querySelectorAll(".tab").forEach((button) => {
       models: "Настройки моделей",
       artifacts: "Артефакты сессии",
     }[button.dataset.view];
+    document.querySelectorAll("textarea.auto-grow").forEach(resizeComposerInput);
   });
 });
 
@@ -266,7 +292,7 @@ agentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = promptInput.value.trim();
   if (!input) return;
-  promptInput.value = "";
+  resetComposerInput(promptInput);
   await runAgent(input);
 });
 
@@ -307,6 +333,7 @@ searchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const query = searchQuery.value.trim();
   if (!query) return;
+  resetComposerInput(searchQuery);
   searchResults.textContent = "Ищу...";
   webContext.hidden = true;
   selectedPage = null;
@@ -370,6 +397,7 @@ webAskForm.addEventListener("submit", async (event) => {
   }
   const question = webQuestion.value.trim();
   if (!question) return;
+  resetComposerInput(webQuestion);
   webAnswer.textContent = "Думаю по выбранной странице...";
   try {
     const response = await fetch("/v1/web/ask", {
@@ -393,6 +421,7 @@ imageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = imagePrompt.value.trim();
   if (!input) return;
+  resetComposerInput(imagePrompt);
   imageResult.textContent = "Генерирую локально...";
   const beforeCount = artifactList.children.length;
   await runAgent(input, "image");

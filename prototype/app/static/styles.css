@@ -170,6 +170,31 @@ button {
   padding: 0 12px;
   transition: background .16s ease, border-color .16s ease, transform .16s ease;
 }
+button svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon-button, .send-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.header-actions .icon-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
 button:hover { background: var(--surface-soft); border-color: #b9c5c1; }
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .55; cursor: wait; transform: none; }
@@ -200,10 +225,21 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 #clearButton:hover, #applyModelsButton:hover { background: var(--surface-soft); }
 
 .view { display: none; min-height: 0; }
-.view.active { display: block; }
+.view.active { display: grid; }
 #agentView.view.active {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+}
+#searchView.view.active,
+#imagesView.view.active,
+#sitesView.view.active {
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+#modelsView.view.active,
+#artifactsView.view.active {
+  display: block;
+  overflow-y: auto;
 }
 
 .conversation {
@@ -260,14 +296,14 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-columns: minmax(0, 1fr) 42px;
   gap: 10px;
-  align-items: start;
+  align-items: end;
   padding: 14px 24px 18px;
   border-top: 1px solid var(--line);
   background: #fbfcfb;
 }
-.composer button { min-height: var(--control); }
+.composer button { align-self: end; }
 textarea, input, select {
   width: 100%;
   border: 1px solid #c2ccc8;
@@ -279,8 +315,10 @@ textarea, input, select {
 }
 textarea {
   resize: vertical;
-  min-height: 76px;
-  max-height: 240px;
+  min-height: var(--control);
+  max-height: 138px;
+  overflow-y: auto;
+  line-height: 1.45;
 }
 select { min-height: var(--control); }
 textarea::placeholder, input::placeholder { color: #899494; }
@@ -291,52 +329,56 @@ button:focus-visible, textarea:focus, input:focus, select:focus {
 }
 
 .site-form {
-  padding: 24px;
+  padding: 14px 24px 18px;
   display: grid;
-  gap: 14px;
-  max-width: 980px;
-  align-content: start;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 10px;
+  max-width: none;
+  align-content: end;
   align-items: end;
+  border-top: 1px solid var(--line);
+  background: #fbfcfb;
 }
 .site-form label {
   display: grid;
-  gap: 7px;
+  gap: 5px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 .site-form button {
-  width: fit-content;
+  width: 42px;
+  min-width: 42px;
   align-self: end;
-  white-space: nowrap;
 }
-.site-result { padding: 0 24px 24px; }
+.site-result {
+  padding: 24px;
+  overflow-y: auto;
+}
 
 #searchForm {
-  grid-template-columns: minmax(320px, 760px) auto;
+  grid-template-columns: minmax(0, 1fr) 42px;
 }
 #imageForm {
-  grid-template-columns: minmax(360px, 760px) auto;
+  grid-template-columns: minmax(0, 1fr) 42px;
 }
 #siteForm {
-  grid-template-columns: minmax(180px, 260px) minmax(360px, 650px) auto;
+  grid-template-columns: minmax(170px, 240px) minmax(0, 1fr) 42px;
 }
-#searchForm input,
+#searchQuery,
 #siteName {
   height: var(--control);
 }
 #imagePrompt,
 #sitePrompt {
-  min-height: 108px;
-}
-#imageForm button,
-#siteForm button {
-  min-width: 138px;
+  min-height: var(--control);
 }
 
 .search-results {
-  padding: 0 24px 18px;
+  padding: 24px;
   display: grid;
   gap: 10px;
+  align-content: start;
+  overflow-y: auto;
 }
 .search-card, .web-context, .site-card {
   border: 1px solid var(--line);
@@ -362,7 +404,10 @@ button:focus-visible, textarea:focus, input:focus, select:focus {
   margin-bottom: 10px;
 }
 .search-card button { min-height: 34px; }
-.web-context { margin: 0 24px 24px; }
+.web-context {
+  margin: 0 24px 24px;
+  align-self: start;
+}
 .web-context h3 {
   font-size: 20px;
   line-height: 1.25;
@@ -566,7 +611,7 @@ button:focus-visible, textarea:focus, input:focus, select:focus {
     grid-template-columns: 1fr;
   }
   .site-form button {
-    width: 100%;
+    width: 42px;
   }
   .model-toolbar, .model-controls {
     grid-template-columns: 1fr;
