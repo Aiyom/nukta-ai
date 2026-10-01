@@ -7,6 +7,9 @@
   "scripts": {
     "app": "electron .",
     "app:build": "electron-builder --mac",
+    "app:build:mac": "electron-builder --mac",
+    "app:build:linux": "electron-builder --linux",
+    "app:build:win": "electron-builder --win",
     "stack": "bash scripts/run_stack.sh",
     "stop": "bash scripts/docker_stop.sh"
   },

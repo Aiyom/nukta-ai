@@ -127,6 +127,7 @@ bash scripts/build_for_platform.sh
 ```
 
 Full clone/setup notes: `docs/clone-setup.md`.
+Platform build notes: `docs/platform-builds.md`.
 
 ## Sites Tab
 
