@@ -1,0 +1,34 @@
+{
+  "name": "local-ai-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local AI Agent shell for Mac",
+  "main": "electron/main.js",
+  "scripts": {
+    "app": "electron .",
+    "app:build": "electron-builder --mac",
+    "stack": "bash scripts/run_stack.sh",
+    "stop": "bash scripts/docker_stop.sh"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "local.ai.agent",
+    "productName": "Local AI Agent",
+    "files": [
+      "electron/**/*",
+      "prototype/**/*",
+      "image_worker/**/*",
+      "scripts/**/*",
+      "docker-compose.yml",
+      ".env.docker",
+      ".env.example",
+      "README.md"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+services:
+  api:
+    build:
+      context: ./prototype
+    env_file:
+      - .env.docker
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./generated_sites:/app/generated_sites
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

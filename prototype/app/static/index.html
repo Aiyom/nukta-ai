@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local AI Agent</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20" />
+  </head>
+  <body>
+    <main class="agent-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">AI</div>
+          <div>
+            <h1>Local Agent</h1>
+            <p>Локальные модели, сайты и артефакты</p>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="Разделы">
+          <button class="tab active" data-view="agent" type="button">Агент</button>
+          <button class="tab" data-view="images" type="button">Картинки</button>
+          <button class="tab" data-view="sites" type="button">Сайты</button>
+          <button class="tab" data-view="artifacts" type="button">Артефакты</button>
+        </nav>
+        <section class="status-card">
+          <h2>Стек</h2>
+          <dl id="systemFacts"><div><dt>Статус</dt><dd>Проверяю...</dd></div></dl>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="section-label">Private Local Workspace</p>
+            <h2 id="viewTitle">Полноценный локальный агент</h2>
+          </div>
+          <div class="header-actions">
+            <button id="benchButton" type="button">Замерить</button>
+            <button id="clearButton" type="button">Очистить</button>
+          </div>
+        </header>
+
+        <section id="agentView" class="view active">
+          <div id="conversation" class="conversation" aria-live="polite">
+            <article class="empty-state">
+              <h3>Дай задачу обычным языком</h3>
+              <p>Например: “сгенерируй картинку дерево в пустыне”, “напиши код”, “замерь скорость”.</p>
+            </article>
+          </div>
+          <form id="agentForm" class="composer">
+            <textarea id="prompt" rows="3" placeholder="Что сделать агенту?"></textarea>
+            <button id="runButton" type="submit">Запустить</button>
+          </form>
+        </section>
+
+        <section id="imagesView" class="view">
+          <form id="imageForm" class="site-form">
+            <label>
+              <span>Промпт</span>
+              <textarea id="imagePrompt" rows="5" placeholder="Например: одинокое дерево акации в золотой пустыне, широкие дюны, теплый свет, реалистичное фото"></textarea>
+            </label>
+            <button type="submit">Сгенерировать картинку</button>
+          </form>
+          <div id="imageResult" class="site-result"></div>
+        </section>
+
+        <section id="sitesView" class="view">
+          <form id="siteForm" class="site-form">
+            <label>
+              <span>Папка / имя сайта</span>
+              <input id="siteName" value="my-local-site" />
+            </label>
+            <label>
+              <span>Описание</span>
+              <textarea id="sitePrompt" rows="5" placeholder="Сделай красивый сайт для кофейни в Дохе, современный, дорогой, с меню и бронированием"></textarea>
+            </label>
+            <button type="submit">Создать сайт</button>
+          </form>
+          <div id="siteResult" class="site-result"></div>
+        </section>
+
+        <section id="artifactsView" class="view">
+          <div id="artifactList" class="artifact-grid"></div>
+        </section>
+      </section>
+
+      <aside class="inspector">
+        <section>
+          <h2>Ход выполнения</h2>
+          <ol id="stepList" class="step-list"></ol>
+        </section>
+        <section>
+          <h2>Задачи</h2>
+          <div id="taskList" class="task-list"></div>
+        </section>
+      </aside>
+    </main>
+    <script src="/static/app.js?v=20"></script>
+  </body>
+</html>

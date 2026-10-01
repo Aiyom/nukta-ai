@@ -1,0 +1,157 @@
+# Public AI Service Prototype
+
+This repository is a first technical baseline for a public AI service built on
+open-weight models and infrastructure under our control.
+
+The prototype intentionally does not call external model APIs. It exposes a
+small service API with mock adapters so product and evaluation flows can be
+developed before renting GPU servers.
+
+## Contents
+
+- `docs/technical-plan.md` - architecture, model choices, licensing notes,
+  infrastructure plan, and milestones.
+- `eval/tasks.jsonl` - starter verification set for Russian, code, documents,
+  search/RAG, image, and video workflows.
+- `prototype/` - FastAPI service skeleton with provider adapters.
+
+## Local Run, Mock Backend
+
+```bash
+cp .env.example .env
+cd prototype
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8080
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Try API:
+
+```bash
+curl -sS http://127.0.0.1:8080/health
+curl -sS http://127.0.0.1:8080/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d '{"model":"router-default","messages":[{"role":"user","content":"Составь краткий план запуска ИИ-сервиса"}]}'
+```
+
+## Local Apple GPU
+
+See `docs/local-mac-gpu.md`.
+See `docs/production-readiness.md` for the runnable checklist.
+
+This project can connect to a local MLX or llama.cpp Metal server through
+OpenAI-compatible endpoints:
+
+```env
+TEXT_BACKEND=mlx
+TEXT_BACKEND_URL=http://127.0.0.1:8000/v1
+```
+
+Then measure speed:
+
+```bash
+python3 scripts/benchmark_chat.py --runs 3
+```
+
+## Docker
+
+Recommended managed run:
+
+```bash
+bash scripts/run_stack.sh
+```
+
+Keep that terminal open. Press `Ctrl+C` in it to stop Docker API/UI, the local
+MLX text model process, and the local image worker, so the laptop stops doing
+inference work.
+
+Detached start:
+
+```bash
+bash scripts/docker_start.sh
+```
+
+Stop everything, including the local MLX model process:
+
+```bash
+bash scripts/docker_stop.sh
+```
+
+Status:
+
+```bash
+bash scripts/docker_status.sh
+```
+
+On macOS, Docker containers cannot directly use the Apple Metal/MPS GPU. The
+Docker stack therefore runs API/UI in containers and runs local model workers on
+the Mac host, managed by the start/stop scripts:
+
+- text: MLX on `127.0.0.1:8000`;
+- images: Diffusers image worker on `127.0.0.1:8188`.
+
+The current local image baseline is `runwayml/stable-diffusion-v1-5`. It is
+enough to prove the local workflow, but not the final quality target for the
+public service.
+
+## Mac App Shell
+
+After cloning on macOS Apple Silicon, run one setup command:
+
+```bash
+bash scripts/setup_after_clone.sh
+```
+
+It installs dependencies and downloads the configured local models.
+
+Run as a Mac desktop shell:
+
+```bash
+npm run app
+```
+
+The Electron shell starts the local stack, waits for `http://127.0.0.1:8080`,
+opens the agent workspace, and stops Docker/MLX/image worker when the app quits.
+
+Build a `.app` package:
+
+```bash
+bash scripts/build_for_platform.sh
+```
+
+Full clone/setup notes: `docs/clone-setup.md`.
+
+## Sites Tab
+
+The `Сайты` tab creates local static sites in:
+
+```text
+generated_sites/<site-name>
+```
+
+Each generated site is also served for preview at:
+
+```text
+http://127.0.0.1:8080/generated-sites/<site-name>/index.html
+```
+
+## Images Tab
+
+The `Картинки` tab sends prompts to the local image worker. Generated files are
+stored in:
+
+```text
+image_worker/outputs/
+```
+
+## Production-Like Next Step
+
+Run the evaluation set against candidate models on rented GPU instances only
+after explicit approval for the server spend.

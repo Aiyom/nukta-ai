@@ -1,0 +1,10 @@
+.env
+.runtime/
+dist/
+node_modules/
+generated_sites/
+image_worker/outputs/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
