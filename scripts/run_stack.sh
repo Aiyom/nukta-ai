@@ -8,6 +8,7 @@ MLX_PID="$RUNTIME_DIR/mlx.pid"
 IMAGE_LOG="$RUNTIME_DIR/image-worker.log"
 IMAGE_PID="$RUNTIME_DIR/image-worker.pid"
 MODEL="${MODEL:-mlx-community/Qwen3-8B-4bit}"
+export MODEL
 
 mkdir -p "$RUNTIME_DIR"
 

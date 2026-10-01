@@ -6,6 +6,7 @@ RUNTIME_DIR="$ROOT_DIR/.runtime"
 MLX_LOG="$RUNTIME_DIR/mlx.log"
 MLX_PID="$RUNTIME_DIR/mlx.pid"
 MODEL="${MODEL:-mlx-community/Qwen3-8B-4bit}"
+export MODEL
 
 mkdir -p "$RUNTIME_DIR"
 

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
+from app.model_registry import ModelRecord, add_model, get_active_model, list_models, set_active_model
 from app.models import (
     AgentRunRequest,
     AgentRunResponse,
@@ -22,6 +23,8 @@ from app.models import (
     ChatMessage,
     ImageGenerationRequest,
     ImageGenerationResponse,
+    ModelAddRequest,
+    ModelSwitchRequest,
     SiteGenerationRequest,
     SiteGenerationResponse,
     SearchRequest,
@@ -71,11 +74,60 @@ async def health() -> dict[str, str]:
         "status": "ok",
         "environment": settings.environment,
         "text_backend": settings.text_backend,
-        "text_model": settings.text_model,
+        "text_model": get_active_model("text") or settings.text_model,
         "image_backend": settings.image_backend,
-        "image_model": settings.image_model,
+        "image_model": get_active_model("image") or settings.image_model,
         "video_backend": settings.video_backend,
     }
+
+
+@app.get("/v1/models")
+async def models_catalog() -> dict[str, object]:
+    return {
+        "active": {
+            "text": get_active_model("text") or settings.text_model,
+            "image": get_active_model("image") or settings.image_model,
+            "video": get_active_model("video"),
+        },
+        "models": list_models(),
+    }
+
+
+@app.post("/v1/models/active")
+async def switch_model(request: ModelSwitchRequest) -> dict[str, object]:
+    try:
+        record = set_active_model(request.kind, request.model_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Model is not registered") from exc
+    return {
+        "active": {
+            "text": get_active_model("text") or settings.text_model,
+            "image": get_active_model("image") or settings.image_model,
+            "video": get_active_model("video"),
+        },
+        "model": record.to_dict(get_active_model(request.kind)),
+        "note": (
+            "If the backend is a single-model local server such as mlx_lm, "
+            "restart that worker with the selected model id before inference."
+        ),
+    }
+
+
+@app.post("/v1/models")
+async def register_model(request: ModelAddRequest) -> dict[str, object]:
+    record = add_model(
+        ModelRecord(
+            id=request.id.strip(),
+            name=request.name.strip() or request.id.strip(),
+            kind=request.kind,
+            backend=request.backend.strip() or settings.text_backend,
+            source_url=request.source_url.strip(),
+            license=request.license.strip(),
+            notes=request.notes.strip(),
+            installed=request.installed,
+        )
+    )
+    return {"model": record.to_dict(get_active_model(request.kind))}
 
 
 @app.post("/v1/chat/completions")

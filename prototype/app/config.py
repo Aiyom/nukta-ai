@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     request_timeout_seconds: float = Field(default=180.0)
     max_prompt_chars: int = Field(default=120000)
     generated_sites_dir: str = Field(default="../generated_sites")
+    model_catalog_json: str = Field(default="")
 
     @property
     def cors_origin_list(self) -> list[str]:

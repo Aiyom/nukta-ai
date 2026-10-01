@@ -3,6 +3,7 @@ const views = {
   search: document.querySelector("#searchView"),
   images: document.querySelector("#imagesView"),
   sites: document.querySelector("#sitesView"),
+  models: document.querySelector("#modelsView"),
   artifacts: document.querySelector("#artifactsView"),
 };
 const title = document.querySelector("#viewTitle");
@@ -25,6 +26,17 @@ const sitePrompt = document.querySelector("#sitePrompt");
 const imagePrompt = document.querySelector("#imagePrompt");
 const siteResult = document.querySelector("#siteResult");
 const imageResult = document.querySelector("#imageResult");
+const textModelSelect = document.querySelector("#textModelSelect");
+const imageModelSelect = document.querySelector("#imageModelSelect");
+const applyModelsButton = document.querySelector("#applyModelsButton");
+const restartTextWorkerButton = document.querySelector("#restartTextWorkerButton");
+const modelSwitchStatus = document.querySelector("#modelSwitchStatus");
+const modelAddForm = document.querySelector("#modelAddForm");
+const newModelKind = document.querySelector("#newModelKind");
+const newModelId = document.querySelector("#newModelId");
+const newModelUrl = document.querySelector("#newModelUrl");
+const newModelLicense = document.querySelector("#newModelLicense");
+const modelCatalog = document.querySelector("#modelCatalog");
 const runButton = document.querySelector("#runButton");
 const benchButton = document.querySelector("#benchButton");
 const clearButton = document.querySelector("#clearButton");
@@ -35,6 +47,7 @@ const artifactList = document.querySelector("#artifactList");
 
 let tasks = [];
 let selectedPage = null;
+let modelState = null;
 
 document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => {
@@ -47,6 +60,7 @@ document.querySelectorAll(".tab").forEach((button) => {
       search: "Поиск и разговор по сайту",
       images: "Локальная генерация картинок",
       sites: "Генератор локальных сайтов",
+      models: "Настройки моделей",
       artifacts: "Артефакты сессии",
     }[button.dataset.view];
   });
@@ -161,7 +175,91 @@ async function refreshHealth() {
     <div><dt>Текст</dt><dd>${health.text_backend}</dd></div>
     <div><dt>Text model</dt><dd>${health.text_model}</dd></div>
     <div><dt>Image</dt><dd>${health.image_backend}</dd></div>
+    <div><dt>Image model</dt><dd>${health.image_model}</dd></div>
   `;
+}
+
+function modelOption(model) {
+  const option = document.createElement("option");
+  option.value = model.id;
+  option.textContent = `${model.name || model.id} (${model.backend})`;
+  option.selected = Boolean(model.active);
+  return option;
+}
+
+function renderModelSelect(select, models) {
+  select.innerHTML = "";
+  for (const model of models || []) {
+    select.appendChild(modelOption(model));
+  }
+}
+
+function renderModelCatalog() {
+  modelCatalog.innerHTML = "";
+  const groups = [
+    ["text", "Текстовые модели"],
+    ["image", "Модели картинок"],
+    ["video", "Видео модели"],
+  ];
+  for (const [kind, label] of groups) {
+    const section = document.createElement("section");
+    section.className = "model-group";
+    section.innerHTML = `<h3>${label}</h3>`;
+    const models = modelState?.models?.[kind] || [];
+    if (!models.length) {
+      section.insertAdjacentHTML("beforeend", "<p>Пока нет моделей.</p>");
+    }
+    for (const model of models) {
+      const card = document.createElement("article");
+      card.className = `model-card${model.active ? " active" : ""}`;
+      card.innerHTML = `
+        <div>
+          <h4></h4>
+          <p class="model-id"></p>
+        </div>
+        <dl>
+          <div><dt>Backend</dt><dd></dd></div>
+          <div><dt>Лицензия</dt><dd></dd></div>
+          <div><dt>Статус</dt><dd></dd></div>
+        </dl>
+        <p class="model-notes"></p>
+        <a target="_blank" rel="noreferrer">Model card</a>
+        <code></code>
+      `;
+      card.querySelector("h4").textContent = model.name || model.id;
+      card.querySelector(".model-id").textContent = model.id;
+      card.querySelectorAll("dd")[0].textContent = model.backend || "unknown";
+      card.querySelectorAll("dd")[1].textContent = model.license || "Проверь upstream model card";
+      card.querySelectorAll("dd")[2].textContent = model.installed ? "установлена" : "можно скачать";
+      card.querySelector(".model-notes").textContent = model.notes || "";
+      const link = card.querySelector("a");
+      if (model.source_url) {
+        link.href = model.source_url;
+      } else {
+        link.remove();
+      }
+      card.querySelector("code").textContent = model.download_command || "";
+      section.appendChild(card);
+    }
+    modelCatalog.appendChild(section);
+  }
+}
+
+async function refreshModels() {
+  const response = await fetch("/v1/models");
+  modelState = await readJsonOrThrow(response);
+  renderModelSelect(textModelSelect, modelState.models.text);
+  renderModelSelect(imageModelSelect, modelState.models.image);
+  renderModelCatalog();
+}
+
+async function switchModel(kind, modelId) {
+  const response = await fetch("/v1/models/active", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind, model_id: modelId }),
+  });
+  return readJsonOrThrow(response);
 }
 
 agentForm.addEventListener("submit", async (event) => {
@@ -304,6 +402,80 @@ imageForm.addEventListener("submit", async (event) => {
   }
 });
 
+applyModelsButton.addEventListener("click", async () => {
+  applyModelsButton.disabled = true;
+  modelSwitchStatus.textContent = "Применяю...";
+  try {
+    await switchModel("text", textModelSelect.value);
+    await switchModel("image", imageModelSelect.value);
+    modelSwitchStatus.textContent = "Готово. Для single-model MLX перезапусти worker с выбранным Model ID.";
+    await refreshModels();
+    await refreshHealth();
+  } catch (error) {
+    modelSwitchStatus.textContent = `Ошибка: ${error.message}`;
+  } finally {
+    applyModelsButton.disabled = false;
+  }
+});
+
+restartTextWorkerButton.addEventListener("click", async () => {
+  const modelId = textModelSelect.value;
+  restartTextWorkerButton.disabled = true;
+  applyModelsButton.disabled = true;
+  try {
+    await switchModel("text", modelId);
+    if (window.localAgent?.restartTextWorker) {
+      modelSwitchStatus.textContent = `Перезапускаю локальный text worker: ${modelId}`;
+      await window.localAgent.restartTextWorker(modelId);
+      modelSwitchStatus.textContent = "Готово. Worker перезапущен, UI обновлен.";
+      await refreshModels();
+      await refreshHealth();
+      return;
+    }
+    modelSwitchStatus.innerHTML = `
+      <span>В обычном браузере нельзя управлять процессами Mac. Запусти через Mac app или выполни:</span>
+      <code>MODEL="${modelId}" bash scripts/run_stack.sh</code>
+    `;
+  } catch (error) {
+    modelSwitchStatus.textContent = `Ошибка перезапуска: ${error.message}`;
+  } finally {
+    restartTextWorkerButton.disabled = false;
+    applyModelsButton.disabled = false;
+  }
+});
+
+modelAddForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const id = newModelId.value.trim();
+  if (!id) return;
+  modelSwitchStatus.textContent = "Добавляю модель...";
+  try {
+    const response = await fetch("/v1/models", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id,
+        name: id.split("/").at(-1),
+        kind: newModelKind.value,
+        source_url: newModelUrl.value.trim(),
+        license: newModelLicense.value.trim(),
+        notes: "Пользовательская модель. Проверь лицензию, требования VRAM/RAM и формат перед production.",
+      }),
+    });
+    await readJsonOrThrow(response);
+    newModelId.value = "";
+    newModelUrl.value = "";
+    newModelLicense.value = "";
+    modelSwitchStatus.textContent = "Модель добавлена в каталог.";
+    await refreshModels();
+  } catch (error) {
+    modelSwitchStatus.textContent = `Ошибка: ${error.message}`;
+  }
+});
+
 refreshHealth().catch(() => {
   systemFacts.innerHTML = "<div><dt>Статус</dt><dd>Недоступен</dd></div>";
+});
+refreshModels().catch(() => {
+  modelCatalog.textContent = "Каталог моделей недоступен.";
 });

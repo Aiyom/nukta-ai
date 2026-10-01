@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 
@@ -25,11 +25,14 @@ async function waitForHealth(timeoutMs = 180000) {
   return false;
 }
 
-function startStack() {
+function startStack(modelId) {
+  const env = { ...process.env };
+  if (modelId) env.MODEL = modelId;
+
   stackProcess = spawn("bash", ["scripts/run_stack.sh"], {
     cwd: rootDir,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env },
+    env,
   });
 
   stackProcess.stdout.on("data", (data) => {
@@ -61,6 +64,24 @@ async function stopStack() {
   });
 }
 
+async function restartStack(modelId) {
+  quitting = true;
+  if (stackProcess && !stackProcess.killed) {
+    stackProcess.kill("SIGINT");
+    await sleep(3500);
+  }
+  quitting = false;
+  startStack(modelId);
+  const ready = await waitForHealth(240000);
+  if (!ready) {
+    throw new Error("Local backend did not become ready after restart.");
+  }
+  if (mainWindow) {
+    await mainWindow.loadURL("http://127.0.0.1:8080");
+  }
+  return { ok: true, model: modelId };
+}
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1380,
@@ -71,6 +92,7 @@ async function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
@@ -91,6 +113,13 @@ async function createWindow() {
 }
 
 app.whenReady().then(createWindow);
+
+ipcMain.handle("local-agent:restart-text-worker", async (_, modelId) => {
+  if (!modelId || typeof modelId !== "string") {
+    throw new Error("Model ID is required.");
+  }
+  return restartStack(modelId);
+});
 
 app.on("before-quit", async (event) => {
   if (!quitting) {

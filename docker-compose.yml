@@ -4,6 +4,8 @@ services:
       context: ./prototype
     env_file:
       - .env.docker
+    environment:
+      TEXT_MODEL: ${MODEL:-mlx-community/Qwen3-8B-4bit}
     ports:
       - "8080:8080"
     volumes:

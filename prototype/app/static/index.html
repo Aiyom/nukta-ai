@@ -21,6 +21,7 @@
           <button class="tab" data-view="search" type="button">Поиск</button>
           <button class="tab" data-view="images" type="button">Картинки</button>
           <button class="tab" data-view="sites" type="button">Сайты</button>
+          <button class="tab" data-view="models" type="button">Модели</button>
           <button class="tab" data-view="artifacts" type="button">Артефакты</button>
         </nav>
         <section class="status-card">
@@ -100,6 +101,53 @@
             <button type="submit">Создать сайт</button>
           </form>
           <div id="siteResult" class="site-result"></div>
+        </section>
+
+        <section id="modelsView" class="view">
+          <div class="model-toolbar">
+            <section class="model-switcher">
+              <h3>Активные модели</h3>
+              <div class="model-controls">
+                <label>
+                  <span>Текст</span>
+                  <select id="textModelSelect"></select>
+                </label>
+                <label>
+                  <span>Картинки</span>
+                  <select id="imageModelSelect"></select>
+                </label>
+                <button id="applyModelsButton" type="button">Применить</button>
+                <button id="restartTextWorkerButton" type="button">Перезапустить text worker</button>
+              </div>
+              <p id="modelSwitchStatus"></p>
+            </section>
+
+            <form id="modelAddForm" class="model-add-form">
+              <h3>Добавить модель</h3>
+              <label>
+                <span>Тип</span>
+                <select id="newModelKind">
+                  <option value="text">Текст</option>
+                  <option value="image">Картинки</option>
+                  <option value="video">Видео</option>
+                </select>
+              </label>
+              <label>
+                <span>Model ID</span>
+                <input id="newModelId" placeholder="mlx-community/Qwen2.5-Coder-7B-Instruct-4bit" />
+              </label>
+              <label>
+                <span>Ссылка / model card</span>
+                <input id="newModelUrl" placeholder="https://huggingface.co/..." />
+              </label>
+              <label>
+                <span>Лицензия / заметка</span>
+                <input id="newModelLicense" placeholder="Проверь model card перед production" />
+              </label>
+              <button type="submit">Добавить в агент</button>
+            </form>
+          </div>
+          <div id="modelCatalog" class="model-catalog"></div>
         </section>
 
         <section id="artifactsView" class="view">

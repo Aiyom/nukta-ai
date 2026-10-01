@@ -5,6 +5,7 @@ from time import perf_counter
 import httpx
 
 from app.config import settings
+from app.model_registry import get_active_model
 from app.models import (
     ChatCompletionChoice,
     ChatCompletionRequest,
@@ -49,7 +50,7 @@ class VllmTextProvider(TextProvider):
     async def complete(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         payload = request.model_dump()
         if payload["model"] in {"router-default", "local-default", ""}:
-            payload["model"] = settings.text_model
+            payload["model"] = get_active_model("text") or settings.text_model
         if settings.text_backend == "mlx" and payload["messages"]:
             payload["messages"][-1]["content"] = f"{payload['messages'][-1]['content']}\n/no_think"
         headers = {}
@@ -98,7 +99,7 @@ class LocalHttpImageProvider(ImageProvider):
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
         payload = request.model_dump()
         if payload["model"] in {"image-default", ""}:
-            payload["model"] = settings.image_model
+            payload["model"] = get_active_model("image") or settings.image_model
         payload["prompt"] = build_image_prompt(payload["prompt"])
         payload["negative_prompt"] = build_negative_prompt(payload.get("negative_prompt", ""))
         async with httpx.AsyncClient(timeout=settings.request_timeout_seconds * 4) as client:

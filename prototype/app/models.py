@@ -152,3 +152,19 @@ class WebAskRequest(BaseModel):
 class WebAskResponse(BaseModel):
     answer: str
     metrics: dict[str, float] = Field(default_factory=dict)
+
+
+class ModelSwitchRequest(BaseModel):
+    kind: Literal["text", "image", "video"]
+    model_id: str
+
+
+class ModelAddRequest(BaseModel):
+    id: str
+    name: str = ""
+    kind: Literal["text", "image", "video"] = "text"
+    backend: str = ""
+    source_url: str = ""
+    license: str = ""
+    notes: str = ""
+    installed: bool = False
